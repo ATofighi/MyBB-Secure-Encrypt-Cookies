@@ -72,6 +72,7 @@ function encryptcookie_install()
 					`useragent` varchar(200) NOT NULL default '',
 					`ips` text NOT NULL,
 					`data` text NOT NULL,
+					`lastupdate` int NOT NULL default '0',
 					PRIMARY KEY (`cid`)
 				){$collation}");
 		}
@@ -83,6 +84,7 @@ function encryptcookie_install()
 					`useragent` varchar(200) NOT NULL default '',
 					`ips` text NOT NULL,
 					`data` text NOT NULL,
+					`lastupdate` int unsigned NOT NULL default '0',
 					PRIMARY KEY (`cid`)
 				){$collation}");
 		}
@@ -91,38 +93,27 @@ function encryptcookie_install()
 	// Make changes in config.php
 	if(!isset($config['crypto_key']))
 	{
-		$key = addslashes(Crypto::CreateNewRandomKey());
+		$key = (Crypto::CreateNewRandomKey());
 
-		$file = @fopen(MYBB_ROOT."inc/config.php", "r+");
+		global $config;
 
-		$contents = '';
-		while(!@feof($file))
-		{
-			$contents .= @fread($file, 8436);
+		if (!isset($config)) {
+			require MYBB_ROOT . '/inc/config.php';
 		}
 
-		$contents_temp = str_replace(array("\r", "\t", "\n", " ", "\0", "\x0B"), '', $contents);
+		$config = array_merge($config, ['crypto_key' => $key, 'secure_cookies' => 'mybbuser,sid,adminsid']);
 
-		// Set the pointer before the closing php tag to remove it
-		$pos = strrpos($contents, "?>");
-		if(my_substr($contents_temp, -2) == "?>")
-		{
-			@fseek($file, $pos, SEEK_SET);
+		$contents = var_export($config, true);
+		$contents = <<<CONFIGPHP
+<?php
+\$config = {$contents};
+CONFIGPHP;
+
+		if (!@file_put_contents(MYBB_ROOT . '/inc/config.php', $contents)) {
+			// Show an error I guess...
+			flash_message("Please change <em>inc/config.php</em> file to this code: <pre>".nl2br(htmlspecialchars($contents)).'</pre>', "error");
 		}
 
-		@fwrite($file, "
-/**
-* Encypt Cookie Secret Key
-*/
-\$config['crypto_key'] = '{$key}';
-
-/**
-* The cookies should be encypted
-*/
-
-\$config['secure_cookies'] = 'mybbuser,sid,adminsid';");
-
-		@fclose($file);
 	}
 
 }
@@ -133,6 +124,25 @@ function encryptcookie_uninstall()
     $PL or require_once PLUGINLIBRARY;
 
 	$db->drop_table('cookies');
+
+	global $config;
+
+	if (!isset($config)) {
+		require MYBB_ROOT . '/inc/config.php';
+	}
+
+	unset($config['crypto_key'], $config['secure_cookies']);
+
+	$contents = var_export($config, true);
+	$contents = <<<CONFIGPHP
+<?php
+\$config = {$contents};
+CONFIGPHP;
+
+	if (!@file_put_contents(MYBB_ROOT . '/inc/config.php', $contents)) {
+		// Show an error I guess...
+		flash_message("Please change <em>inc/config.php</em> file to this code: <pre>".nl2br(htmlspecialchars($contents)).'</pre>', "error");
+	}
 }
 
 function encryptcookie_activate()
@@ -160,6 +170,9 @@ function encryptcookie_deactivate()
 function encryptcookie($name, $value, $expires, $httponly, $cookie)
 {
 	global $mybb, $db, $config, $EncryptCookie;
+	if (!isset($config)) {
+		require MYBB_ROOT . '/inc/config.php';
+	}
 	$cookies = explode(',', $config['secure_cookies']);
 	if(!in_array($name, $cookies) || !$EncryptCookie->active)
 	{
@@ -239,10 +252,13 @@ class EncryptCookie {
 
 	public function EncryptCookie()
 	{
-		global $mybb, $db, $config;
-
+		global $mybb, $db, $config, $cache;
+		$plugins = $cache->read('plugins');
+		if (!isset($config)) {
+			require MYBB_ROOT . '/inc/config.php';
+		}
 		$this->key = $config['crypto_key'];
-		$this->active = encryptcookie_is_installed() && $this->key;
+		$this->active = $plugins['active']['encryptcookie'] && $this->key;
 		if(!$this->active)
 		{
 			return NULL;
@@ -251,9 +267,9 @@ class EncryptCookie {
 		$this->cookies = explode(',', $config['secure_cookies']);
 		foreach($this->cookies as $cookie)
 		{
-			if($mybb->cookies[$cookie])
+			if(isset($mybb->cookies[$cookie]))
 			{
-				myy_setcookie($cookie, '');
+				myy_setcookie($cookie, '', -1);
 			}
 		}
 		if($mybb->cookies[$this->cookiename] == '')
@@ -275,6 +291,8 @@ class EncryptCookie {
 		$this->row = $data;
 
 		$this->data = $this->old_data = (array)json_decode($data['data']);
+		
+		add_shutdown(array($this, 'set_query'));
 		
 		//print_r($this->data);exit;
 		
@@ -305,6 +323,11 @@ class EncryptCookie {
 	
 	private function create_ec()
 	{
+		if(!$this->active)
+		{
+			return NULL;
+		}
+
 		global $db;
 		$this->randomecode = $randomecode = md5(random_str(64).md5($_SERVER['HTTP_USER_AGENT']).time().get_ip()).random_str(134);
 		$db->insert_query('cookies',
@@ -316,10 +339,16 @@ class EncryptCookie {
 			)
 		);
 		my_setcookie($this->cookiename, base64_encode(Crypto::Encrypt($randomecode, $this->key)), (24*60*60*30), true);
+		add_shutdown(array($this, 'set_query'));
 	}
 
 	public function set($name, $value, $expires)
 	{
+		if(!$this->active)
+		{
+			return NULL;
+		}
+
 		//echo $name.'<br>';
 		if($value)
 		{
@@ -335,13 +364,17 @@ class EncryptCookie {
 		{
 			unset($this->data[$name]);
 		}
-		$this->set_query();
 	}
 	
 	public function set_query()
 	{
+		if(!$this->active)
+		{
+			return NULL;
+		}
+
 		global $db;
-		$db->update_query('cookies', array('data' => $db->escape_string(json_encode($this->data, true))), "randomcode='".$db->escape_string($this->randomcode)."'", 1);
+		$db->update_query('cookies', array('lastupdate' => TIME_NOW, 'data' => $db->escape_string(json_encode($this->data, true))), "randomcode='".$db->escape_string($this->randomcode)."'", 1);
 //		$this->old_data = $this->data;
 	}
 	
@@ -354,7 +387,7 @@ class EncryptCookie {
 		{
 			$ips[] = $myip;
 		}
-		$db->update_query('cookies', array('ips' => $db->escape_string(implode(',',$ips))), "randomcode='".$db->escape_string($this->randomcode)."'", 1);
+		$db->update_query('cookies', array('lastupdate' => TIME_NOW, 'ips' => $db->escape_string(implode(',',$ips))), "randomcode='".$db->escape_string($this->randomcode)."'", 1);
 	}
 }
 
@@ -375,6 +408,6 @@ function encryptcookie_forcelogin()
 	global $mybb;
 	if($mybb->get_input('action') == 'confrim_ip' && THIS_SCRIPT == 'member.php')
 	{
-		redirect('member.php?action=login', 'Your IP is not confirmed for us, please login...', 'Please login', true);
+		redirect('member.php?action=login', 'Your IP is not confrimed for us, please login...', 'Please login', true);
 	}
 }

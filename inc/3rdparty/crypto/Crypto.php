@@ -135,7 +135,7 @@ class Crypto
 
         if (self::our_strlen($key) !== self::KEY_BYTE_SIZE)
         {
-            throw new CannotPerformOperationException("Bad key.");
+            // throw new CannotPerformOperationException("Bad key.");
         }
 
         // Generate a sub-key for encryption.
@@ -146,7 +146,7 @@ class Crypto
         self::EnsureFunctionExists("mcrypt_get_iv_size");
         $ivsize = mcrypt_get_iv_size(self::CIPHER, self::CIPHER_MODE);
         if ($ivsize === FALSE || $ivsize <= 0) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
         $iv = self::SecureRandom($ivsize);
 
@@ -176,11 +176,11 @@ class Crypto
         }
         $hmac = self::our_substr($ciphertext, 0, self::MAC_BYTE_SIZE);
         if ($hmac === FALSE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
         $ciphertext = self::our_substr($ciphertext, self::MAC_BYTE_SIZE);
         if ($ciphertext === FALSE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
 
         // Regenerate the same authentication sub-key.
@@ -196,18 +196,18 @@ class Crypto
             self::EnsureFunctionExists("mcrypt_get_iv_size");
             $ivsize = mcrypt_get_iv_size(self::CIPHER, self::CIPHER_MODE);
             if ($ivsize === FALSE || $ivsize <= 0) {
-                throw new CannotPerformOperationException();
+                // throw new CannotPerformOperationException();
             }
             if (self::our_strlen($ciphertext) <= $ivsize) {
                 throw new InvalidCiphertextException();
             }
             $iv = self::our_substr($ciphertext, 0, $ivsize);
             if ($iv === FALSE) {
-                throw new CannotPerformOperationException();
+                // throw new CannotPerformOperationException();
             }
             $ciphertext = self::our_substr($ciphertext, $ivsize);
             if ($ciphertext === FALSE) {
-                throw new CannotPerformOperationException();
+                // throw new CannotPerformOperationException();
             }
             
             $plaintext = self::PlainDecrypt($ciphertext, $ekey, $iv);
@@ -275,7 +275,7 @@ class Crypto
         self::EnsureFunctionExists("mcrypt_module_open");
         $crypt = mcrypt_module_open(self::CIPHER, "", self::CIPHER_MODE, "");
         if ($crypt === FALSE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
 
         // Pad the plaintext to a multiple of the block size.
@@ -287,19 +287,19 @@ class Crypto
         self::EnsureFunctionExists("mcrypt_generic_init");
         $ret = mcrypt_generic_init($crypt, $key, $iv);
         if ($ret !== 0) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
         self::EnsureFunctionExists("mcrypt_generic");
         $ciphertext = mcrypt_generic($crypt, $plaintext);
         self::EnsureFunctionExists("mcrypt_generic_deinit");
         $ret = mcrypt_generic_deinit($crypt);
         if ($ret !== TRUE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
         self::EnsureFunctionExists("mcrypt_module_close");
         $ret = mcrypt_module_close($crypt);
         if ($ret !== TRUE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
 
         return $ciphertext;
@@ -313,7 +313,7 @@ class Crypto
         self::EnsureFunctionExists("mcrypt_module_open");
         $crypt = mcrypt_module_open(self::CIPHER, "", self::CIPHER_MODE, "");
         if ($crypt === FALSE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
 
         self::EnsureFunctionExists("mcrypt_enc_get_block_size");
@@ -321,29 +321,29 @@ class Crypto
         self::EnsureFunctionExists("mcrypt_generic_init");
         $ret = mcrypt_generic_init($crypt, $key, $iv);
         if ($ret !== 0) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
         self::EnsureFunctionExists("mdecrypt_generic");
         $plaintext = mdecrypt_generic($crypt, $ciphertext);
         self::EnsureFunctionExists("mcrypt_generic_deinit");
         $ret = mcrypt_generic_deinit($crypt);
         if ($ret !== TRUE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
         self::EnsureFunctionExists("mcrypt_module_close");
         $ret = mcrypt_module_close($crypt);
         if ($ret !== TRUE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
 
         // Remove the padding.
         $pad = ord($plaintext[self::our_strlen($plaintext) - 1]);
         if ($pad <= 0 || $pad > $block) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
         $plaintext = self::our_substr($plaintext, 0, self::our_strlen($plaintext) - $pad);
         if ($plaintext === FALSE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
 
         return $plaintext;
@@ -357,7 +357,7 @@ class Crypto
         self::EnsureFunctionExists("mcrypt_create_iv");
         $random = mcrypt_create_iv($octets, MCRYPT_DEV_URANDOM);
         if ($random === FALSE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         } else {
             return $random;
         }
@@ -378,7 +378,7 @@ class Crypto
         // Sanity-check the desired output length.
         if (empty($length) || !is_int($length) ||
             $length < 0 || $length > 255 * $digest_length) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
 
         // "if [salt] not provided, is set to a string of HashLen zeroes."
@@ -395,7 +395,7 @@ class Crypto
 
         // This check is useless, but it serves as a reminder to the spec.
         if (self::our_strlen($prk) < $digest_length) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
 
         // T(0) = ''
@@ -416,7 +416,7 @@ class Crypto
         // ORM = first L octets of T
         $orm = self::our_substr($t, 0, $length);
         if ($orm === FALSE) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
         return $orm;
     }
@@ -434,7 +434,7 @@ class Crypto
         // NOTE: This leaks information when the strings are not the same
         // length, but they should always be the same length here. Enforce it:
         if (self::our_strlen($correct_hmac) !== self::our_strlen($message_hmac)) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
 
         $blind = self::CreateNewRandomKey();
@@ -586,7 +586,7 @@ class Crypto
     private static function EnsureFunctionExists($name)
     {
         if (!function_exists($name)) {
-            throw new CannotPerformOperationException();
+            // throw new CannotPerformOperationException();
         }
     }
 
@@ -601,7 +601,7 @@ class Crypto
         if (function_exists('mb_strlen')) {
             $length = mb_strlen($str, '8bit');
             if ($length === FALSE) {
-                throw new CannotPerformOperationException();
+                // throw new CannotPerformOperationException();
             }
             return $length;
         } else {
@@ -680,3 +680,9 @@ class CryptoExceptionHandler
 
 $crypto_exception_handler_object_dont_touch_me = new CryptoExceptionHandler();
 
+/*
+ * My Changes: I change 
+	throw new Cannot
+ to
+	// throw new Cannot
+*/

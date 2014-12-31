@@ -18,15 +18,27 @@ if(!class_exists('Crypto'))
 
 function encryptcookie_info()
 {
-    return array(
+	global $EncryptCookie;
+    $info = array(
         "name"          => "Encrypt Cookie",
         "description"   => "",
+		"version"		=> "1.00",
         "website"       => "http://my-bb.ir",
         "author"        => "AliReza Tofighi",
         "authorsite"    => "http://my-bb.ir",
         "codename"       => "encryptcookie",
         "compatibility" => "18*"
-        );
+    );
+	/*if(encryptcookie_is_installed() && $EncryptCookie->active == false)
+	{
+		$code = htmlspecialchars_uni(encryptcookie_create_config());
+		$info['description'] = <<<DESC
+<br />
+For apply this plugin you should change the <em>inc/config.php</em> file to this code:
+<pre style="overflow:auto;background:#fff;border: 1px solid #ccc;max-height:100px;padding: 15px;border-radius:4px;">{$code}</pre>
+DESC;
+	}*/
+	return $info;
 }
 
 function encryptcookie_is_installed()
@@ -34,6 +46,41 @@ function encryptcookie_is_installed()
     global $db;
 
     return $db->table_exists('cookies');
+}
+
+function encryptcookie_create_config($remove = 0)
+{
+	global $config;
+	if (!isset($config)) {
+		require MYBB_ROOT . '/inc/config.php';
+	}
+
+	if(isset($config['crypto_key']) == $remove)
+	{
+		$key = Crypto::CreateNewRandomKey();
+		if($remove)
+		{
+			unset($config['crypto_key'], $config['secure_cookies']);
+		}
+		else
+		{
+			$config = array_merge($config, ['crypto_key' => $key, 'secure_cookies' => 'mybbuser,sid,adminsid']);
+		}
+	}
+	$contents = var_export($config, true);
+	$code = <<<CONFIGPHP
+<?php
+/**
+ * MyBB configuration file
+ *
+ * This file edited by EncryptCookie plugin.
+ */
+
+\$config = {$contents};
+CONFIGPHP;
+
+	return $code;
+
 }
 
 function encryptcookie_install()
@@ -90,24 +137,35 @@ function encryptcookie_install()
 		}
 	}
 
+	// create the task:
+	if(!function_exists('fetch_next_run'))
+	{
+		require_once MYBB_ROOT."inc/functions_task.php";
+	}
+
+	$task = array(
+		"title" => "MyBB Cookies",
+		"description" => "Deletes old cookies",
+		"file" => "encryptcookie",
+		"minute" => "0",
+		"hour" => "0",
+		"day" => "*",
+		"weekday" => "*",
+		"month" => "*",
+		"enabled" => "1",
+		"logging" => "1"
+	);
+	$task['nextrun'] = fetch_next_run($task);
+	$db->insert_query("tasks", $task);
+
+
 	// Make changes in config.php
 	if(!isset($config['crypto_key']))
 	{
 		$key = (Crypto::CreateNewRandomKey());
 
-		global $config;
 
-		if (!isset($config)) {
-			require MYBB_ROOT . '/inc/config.php';
-		}
-
-		$config = array_merge($config, ['crypto_key' => $key, 'secure_cookies' => 'mybbuser,sid,adminsid']);
-
-		$contents = var_export($config, true);
-		$contents = <<<CONFIGPHP
-<?php
-\$config = {$contents};
-CONFIGPHP;
+		$contents = encryptcookie_create_config();
 
 		if (!@file_put_contents(MYBB_ROOT . '/inc/config.php', $contents)) {
 			// Show an error I guess...
@@ -120,28 +178,20 @@ CONFIGPHP;
 
 function encryptcookie_uninstall()
 {
-    global $PL, $db;
+    global $PL, $db, $EncryptCookie;
     $PL or require_once PLUGINLIBRARY;
 
 	$db->drop_table('cookies');
 
-	global $config;
-
-	if (!isset($config)) {
-		require MYBB_ROOT . '/inc/config.php';
-	}
-
-	unset($config['crypto_key'], $config['secure_cookies']);
-
-	$contents = var_export($config, true);
-	$contents = <<<CONFIGPHP
-<?php
-\$config = {$contents};
-CONFIGPHP;
+	$contents = encryptcookie_create_config(1);
 
 	if (!@file_put_contents(MYBB_ROOT . '/inc/config.php', $contents)) {
 		// Show an error I guess...
 		flash_message("Please change <em>inc/config.php</em> file to this code: <pre>".nl2br(htmlspecialchars($contents)).'</pre>', "error");
+	}
+	else
+	{
+		$EncryptCookie->active = false;
 	}
 }
 
@@ -161,10 +211,11 @@ function encryptcookie_activate()
 
 function encryptcookie_deactivate()
 {
-    global $PL;
+    global $PL, $EncryptCookie;
     $PL or require_once PLUGINLIBRARY;
 	$PL->edit_core('encryptcookie', 'inc/functions.php',
 		array(), true);
+	$EncryptCookie->active = false;
 }
 
 function encryptcookie($name, $value, $expires, $httponly, $cookie)

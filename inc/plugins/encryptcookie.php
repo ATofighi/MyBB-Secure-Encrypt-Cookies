@@ -321,7 +321,7 @@ class EncryptCookie {
 		}
 	}
 	
-	private function create_ec()
+	public function create_ec()
 	{
 		if(!$this->active)
 		{
@@ -330,12 +330,14 @@ class EncryptCookie {
 
 		global $db;
 		$this->randomecode = $randomecode = md5(random_str(64).md5($_SERVER['HTTP_USER_AGENT']).time().get_ip()).random_str(134);
+		$this->old_data = $this->data = array();
 		$db->insert_query('cookies',
 			array(
 				'randomcode' => $randomecode,
 				'data' => $db->escape_string(json_encode($this->data, true)),
 				'ips' => md5(get_ip()),
-				'useragent' => md5($_SERVER['HTTP_USER_AGENT'])
+				'useragent' => md5($_SERVER['HTTP_USER_AGENT']),
+				'lastupdate' => TIME_NOW
 			)
 		);
 		my_setcookie($this->cookiename, base64_encode(Crypto::Encrypt($randomecode, $this->key)), (24*60*60*30), true);
@@ -405,9 +407,15 @@ $plugins->add_hook("global_end", "encryptcookie_forcelogin");
 
 function encryptcookie_forcelogin()
 {
-	global $mybb;
+	global $mybb, $lang, $EncryptCookie;
 	if($mybb->get_input('action') == 'confrim_ip' && THIS_SCRIPT == 'member.php')
 	{
-		redirect('member.php?action=login', 'Your IP is not confrimed for us, please login...', 'Please login', true);
+		$lang->load('encryptcookie');
+		error($lang->confrim_ip_desc, $lang->confrim_ip);
+	}
+	elseif($mybb->get_input('action') == 'clearcookie')
+	{
+		$EncryptCookie->create_ec();
+		header('location: '.$mybb->settings['bburl']);
 	}
 }

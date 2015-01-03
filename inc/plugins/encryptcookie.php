@@ -349,16 +349,39 @@ class EncryptCookie {
 		
 		if(!in_array(md5(get_ip()), explode(',', $data['ips'])))
 		{
-			if(!defined('IN_ADMINCP') && THIS_SCRIPT != 'member.php' && $this->data['mybbuser'])
+			if(defined('IN_ADMINCP') || !$this->data['mybbuser'])
+			{
+				$this->create_ec();
+			}
+			elseif(THIS_SCRIPT == 'member.php' && $mybb->get_input('action') == 'confrim_ip' || $mybb->get_input('action') == 'clearcookie')
+			{
+				// use plugin hook, line 447
+			}
+			elseif(defined('ALLOWABLE_PAGE'))
+			{
+				if(is_string(ALLOWABLE_PAGE))
+				{
+					$allowable_actions = explode(',', ALLOWABLE_PAGE);
+					if(!in_array($mybb->get_input('action'), $allowable_actions))
+					{
+						header('location: '.$mybb->settings['bburl'].'/member.php?action=confrim_ip');
+						exit;
+					}
+
+					unset($allowable_actions);
+				}
+				else if(ALLOWABLE_PAGE !== 1)
+				{
+					header('location: '.$mybb->settings['bburl'].'/member.php?action=confrim_ip');
+					exit;
+				}
+			}
+			else
 			{
 				header('location: '.$mybb->settings['bburl'].'/member.php?action=confrim_ip');
 				exit;
 			}
-			elseif(defined('IN_ADMINCP') || !$this->data['mybbuser'])
-			{
-				$this->create_ec();
-				return NULL;
-			}
+			return NULL;
 		}
 		else
 		{

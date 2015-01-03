@@ -353,7 +353,7 @@ class EncryptCookie {
 			{
 				$this->create_ec();
 			}
-			elseif(THIS_SCRIPT == 'member.php' && $mybb->get_input('action') == 'confrim_ip' || $mybb->get_input('action') == 'clearcookie')
+			elseif(THIS_SCRIPT == 'member.php' && $mybb->get_input('action') == 'confirm_ip' || $mybb->get_input('action') == 'clearcookie')
 			{
 				// use plugin hook, line 447
 			}
@@ -364,7 +364,7 @@ class EncryptCookie {
 					$allowable_actions = explode(',', ALLOWABLE_PAGE);
 					if(!in_array($mybb->get_input('action'), $allowable_actions))
 					{
-						header('location: '.$mybb->settings['bburl'].'/member.php?action=confrim_ip');
+						header('location: '.$mybb->settings['bburl'].'/member.php?action=confirm_ip');
 						exit;
 					}
 
@@ -372,13 +372,13 @@ class EncryptCookie {
 				}
 				else if(ALLOWABLE_PAGE !== 1)
 				{
-					header('location: '.$mybb->settings['bburl'].'/member.php?action=confrim_ip');
+					header('location: '.$mybb->settings['bburl'].'/member.php?action=confirm_ip');
 					exit;
 				}
 			}
 			else
 			{
-				header('location: '.$mybb->settings['bburl'].'/member.php?action=confrim_ip');
+				header('location: '.$mybb->settings['bburl'].'/member.php?action=confirm_ip');
 				exit;
 			}
 			return NULL;
@@ -482,10 +482,10 @@ $plugins->add_hook("global_end", "encryptcookie_forcelogin");
 function encryptcookie_forcelogin()
 {
 	global $mybb, $lang, $EncryptCookie;
-	if($mybb->get_input('action') == 'confrim_ip' && THIS_SCRIPT == 'member.php')
+	if($mybb->get_input('action') == 'confirm_ip' && THIS_SCRIPT == 'member.php')
 	{
 		$lang->load('encryptcookie');
-		error($lang->confrim_ip_desc, $lang->confrim_ip);
+		error($lang->confirm_ip_desc, $lang->confirm_ip);
 	}
 	elseif($mybb->get_input('action') == 'clearcookie')
 	{

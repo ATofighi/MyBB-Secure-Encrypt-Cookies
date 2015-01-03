@@ -64,7 +64,7 @@ function encryptcookie_create_config($remove = 0)
 		}
 		else
 		{
-			$config = array_merge($config, ['crypto_key' => $key, 'secure_cookies' => 'mybbuser,sid,adminsid']);
+			$config = array_merge($config, array('crypto_key' => $key, 'secure_cookies' => 'mybbuser,sid,adminsid'));
 		}
 	}
 	$contents = var_export($config, true);
